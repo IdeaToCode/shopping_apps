@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:shopping_apps/screens/cartScreen.dart';
 import 'package:shopping_apps/screens/favoritesScreen.dart';
-
 import 'package:shopping_apps/screens/productsScreen.dart';
 import 'package:shopping_apps/screens/profileScreen.dart';
 
@@ -25,7 +24,6 @@ class CustomBottomNavBar extends StatelessWidget {
       child: BottomNavigationBar(
         type: BottomNavigationBarType.fixed,
         currentIndex: selectedIndex,
-
         selectedItemColor: Colors.blueAccent,
         unselectedItemColor: Colors.grey.shade500,
         selectedLabelStyle: const TextStyle(
@@ -43,26 +41,25 @@ class CustomBottomNavBar extends StatelessWidget {
             case 0:
               Navigator.pushReplacement(
                 context,
-                MaterialPageRoute(builder: (context) => ProductsScreen()),
+                MaterialPageRoute(builder: (context) =>  ProductsScreen()),
               );
               break;
             case 1:
               Navigator.pushReplacement(
                 context,
-                MaterialPageRoute(builder: (context) => CartScreen()),
+                MaterialPageRoute(builder: (context) => const CartScreen()),
               );
               break;
             case 2:
               Navigator.pushReplacement(
                 context,
-                MaterialPageRoute(builder: (context) => FavoritesScreen()),
+                MaterialPageRoute(builder: (context) =>  FavoritesScreen()),
               );
               break;
-
             case 3:
               Navigator.pushReplacement(
                 context,
-                MaterialPageRoute(builder: (context) => ProfileScreen()),
+                MaterialPageRoute(builder: (context) => const ProfileScreen()),
               );
               break;
           }
@@ -70,25 +67,23 @@ class CustomBottomNavBar extends StatelessWidget {
         items: const [
           BottomNavigationBarItem(
             icon: Icon(Icons.dashboard_outlined),
-            activeIcon: Icon(Icons.dashboard), // تغيير الأيقونة عند الاختيار
+            activeIcon: Icon(Icons.dashboard),
             label: "الرئيسية",
           ),
-
           BottomNavigationBarItem(
-            icon: Icon(Icons.grid_view_outlined),
-            activeIcon: Icon(Icons.grid_view),
-            label: "الكرت",
+            icon: Icon(Icons.shopping_cart_outlined), // تغيير من grid_view إلى shopping_cart
+            activeIcon: Icon(Icons.shopping_cart),
+            label: "السلة", // تغيير من "الكرت" إلى "السلة"
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.favorite_border_outlined),
-            activeIcon: Icon(Icons.favorite_border),
+            activeIcon: Icon(Icons.favorite), // تصحيح active icon
             label: "المفضل",
           ),
-
           BottomNavigationBarItem(
             icon: Icon(Icons.account_circle_outlined),
             activeIcon: Icon(Icons.account_circle),
-            label: "البوفايل",
+            label: "الملف الشخصي", // تغيير من "البوفايل"
           ),
         ],
       ),
