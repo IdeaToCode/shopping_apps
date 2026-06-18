@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../custom_bottom_nav_bar.dart';
-import '../providers/favorites_provider.dart';
+
 import '../models/product_model.dart';
+
+import '../providers/firebase_favorites_provider.dart';
 
 class CartScreen extends StatelessWidget {
   const CartScreen({super.key});
@@ -10,9 +12,6 @@ class CartScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final provider = Provider.of<FavoritesProvider>(context);
-    final cartItems = provider.cartItems;
-
     return Scaffold(
       appBar: AppBar(
         title: const Text("سلة المشتريات"),
@@ -20,16 +19,15 @@ class CartScreen extends StatelessWidget {
         backgroundColor: Colors.white,
         foregroundColor: Colors.black,
         elevation: 0,
-        actions: [
-          if (cartItems.isNotEmpty)
-            IconButton(
-              icon: const Icon(Icons.delete_outline),
-              onPressed: () => _showClearCartDialog(context, provider),
-            ),
-        ],
       ),
-      body: cartItems.isEmpty
-          ? const Center(
+      body: Consumer<FirebaseFavoritesProvider>(
+        builder: (context, provider, child) {
+          final cartItems = provider.cartItems;
+
+          debugPrint('🛒 CartScreen - Cart items: ${cartItems.length}');
+
+          if (cartItems.isEmpty) {
+            return const Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
@@ -42,22 +40,26 @@ class CartScreen extends StatelessWidget {
                   Text("السلة فارغة حالياً"),
                 ],
               ),
-            )
-          : Column(
-              children: [
-                Expanded(
-                  child: ListView.builder(
-                    padding: const EdgeInsets.all(12),
-                    itemCount: cartItems.length,
-                    itemBuilder: (context, index) {
-                      final product = cartItems[index];
-                      return _buildCartItem(context, product, provider);
-                    },
-                  ),
+            );
+          }
+
+          return Column(
+            children: [
+              Expanded(
+                child: ListView.builder(
+                  padding: const EdgeInsets.all(12),
+                  itemCount: cartItems.length,
+                  itemBuilder: (context, index) {
+                    final product = cartItems[index];
+                    return _buildCartItem(context, product, provider);
+                  },
                 ),
-                _buildTotalSection(context, provider),
-              ],
-            ),
+              ),
+              _buildTotalSection(context, provider),
+            ],
+          );
+        },
+      ),
       bottomNavigationBar: const CustomBottomNavBar(selectedIndex: 1),
     );
   }
@@ -65,7 +67,7 @@ class CartScreen extends StatelessWidget {
   Widget _buildCartItem(
     BuildContext context,
     Product product,
-    FavoritesProvider provider,
+    FirebaseFavoritesProvider provider,
   ) {
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
@@ -74,7 +76,6 @@ class CartScreen extends StatelessWidget {
         padding: const EdgeInsets.all(12),
         child: Row(
           children: [
-            // صورة المنتج
             ClipRRect(
               borderRadius: BorderRadius.circular(8),
               child: SizedBox(
@@ -91,7 +92,6 @@ class CartScreen extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 12),
-            // معلومات المنتج
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -102,7 +102,7 @@ class CartScreen extends StatelessWidget {
                       fontWeight: FontWeight.bold,
                       fontSize: 16,
                     ),
-                    maxLines: 1,
+                    maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                   ),
                   const SizedBox(height: 4),
@@ -122,7 +122,6 @@ class CartScreen extends StatelessWidget {
                 ],
               ),
             ),
-            // زر الحذف
             IconButton(
               icon: const Icon(Icons.delete_outline, color: Colors.red),
               onPressed: () => provider.removeFromCart(product),
@@ -133,7 +132,10 @@ class CartScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildTotalSection(BuildContext context, FavoritesProvider provider) {
+  Widget _buildTotalSection(
+    BuildContext context,
+    FirebaseFavoritesProvider provider,
+  ) {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -174,7 +176,11 @@ class CartScreen extends StatelessWidget {
                 borderRadius: BorderRadius.circular(12),
               ),
             ),
-            onPressed: () => _showCheckoutDialog(context, provider),
+            onPressed: () {
+              if (provider.cartItems.isNotEmpty) {
+                _showCheckoutDialog(context, provider);
+              }
+            },
             child: const Text(
               "إتمام الشراء",
               style: TextStyle(color: Colors.white, fontSize: 16),
@@ -185,33 +191,10 @@ class CartScreen extends StatelessWidget {
     );
   }
 
-  void _showClearCartDialog(BuildContext context, FavoritesProvider provider) {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('تفريغ السلة'),
-        content: const Text('هل أنت متأكد من تفريغ السلة بالكامل؟'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('إلغاء'),
-          ),
-          TextButton(
-            onPressed: () {
-              provider.clearCart();
-              Navigator.pop(ctx);
-              ScaffoldMessenger.of(
-                context,
-              ).showSnackBar(const SnackBar(content: Text('تم تفريغ السلة')));
-            },
-            child: const Text('تفريغ', style: TextStyle(color: Colors.red)),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _showCheckoutDialog(BuildContext context, FavoritesProvider provider) {
+  void _showCheckoutDialog(
+    BuildContext context,
+    FirebaseFavoritesProvider provider,
+  ) {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(

@@ -1,59 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../custom_bottom_nav_bar.dart';
-import '../providers/product_provider.dart';
-import '../providers/favorites_provider.dart';
+
+import '../providers/firebase_favorites_provider.dart';
+
 import '../models/product_model.dart';
 import 'product_details_screen.dart';
-import 'my_widget.dart';
+
+import '../providers/product_provider.dart';
 
 class ProductsScreen extends StatelessWidget {
   static const screenRoute = '/productsScreen';
+  const ProductsScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return MultiProvider(
-      providers: [
-        ChangeNotifierProvider(create: (_) => ProductProvider()),
-        ChangeNotifierProvider(create: (_) => FavoritesProvider()),
-      ],
-      child: const ProductsScreenContent(),
-    );
-  }
-}
-
-class ProductsScreenContent extends StatefulWidget {
-  const ProductsScreenContent({super.key});
-
-  @override
-  State<ProductsScreenContent> createState() => _ProductsScreenContentState();
-}
-
-class _ProductsScreenContentState extends State<ProductsScreenContent> {
-  final TextEditingController _searchController = TextEditingController();
-
-  @override
-  void initState() {
-    super.initState();
-    _searchController.addListener(_onSearchChanged);
-  }
-
-  void _onSearchChanged() {
-    context.read<ProductProvider>().searchProducts(_searchController.text);
-  }
-
-  @override
-  void dispose() {
-    _searchController.removeListener(_onSearchChanged);
-    _searchController.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final productProvider = context.watch<ProductProvider>();
-    final favoritesProvider = context.watch<FavoritesProvider>();
-
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
@@ -68,7 +29,9 @@ class _ProductsScreenContentState extends State<ProductsScreenContent> {
             child: Padding(
               padding: const EdgeInsets.all(12),
               child: TextField(
-                controller: _searchController,
+                onChanged: (value) {
+                  context.read<ProductProvider>().searchProducts(value);
+                },
                 decoration: InputDecoration(
                   hintText: 'ابحث عن منتج...',
                   prefixIcon: const Icon(Icons.search),
@@ -83,18 +46,35 @@ class _ProductsScreenContentState extends State<ProductsScreenContent> {
             ),
           ),
         ),
-        body: _buildBody(productProvider, favoritesProvider),
+        body: const ProductsScreenContent(),
         bottomNavigationBar: const CustomBottomNavBar(selectedIndex: 0),
       ),
     );
   }
+}
 
-  Widget _buildBody(
-    ProductProvider productProvider,
-    FavoritesProvider favoritesProvider,
-  ) {
+class ProductsScreenContent extends StatelessWidget {
+  const ProductsScreenContent({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final productProvider = context.watch<ProductProvider>();
+    final favoritesProvider = context.watch<FirebaseFavoritesProvider>();
+
+    debugPrint('📊 Products count: ${productProvider.allProducts.length}');
+    debugPrint('📊 Is loading: ${productProvider.isLoading}');
+
     if (productProvider.isLoading && productProvider.allProducts.isEmpty) {
-      return const Center(child: CircularProgressIndicator());
+      return const Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            CircularProgressIndicator(),
+            SizedBox(height: 16),
+            Text('جاري تحميل المنتجات...'),
+          ],
+        ),
+      );
     }
 
     if (productProvider.errorMessage != null &&
@@ -111,10 +91,9 @@ class _ProductsScreenContentState extends State<ProductsScreenContent> {
               style: const TextStyle(color: Colors.grey),
             ),
             const SizedBox(height: 16),
-            ElevatedButton.icon(
+            ElevatedButton(
               onPressed: () => productProvider.refreshProducts(),
-              icon: const Icon(Icons.refresh),
-              label: const Text('إعادة المحاولة'),
+              child: const Text('إعادة المحاولة'),
             ),
           ],
         ),
@@ -122,7 +101,16 @@ class _ProductsScreenContentState extends State<ProductsScreenContent> {
     }
 
     if (productProvider.allProducts.isEmpty) {
-      return const Center(child: Text('لا توجد منتجات'));
+      return const Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.inventory_2_outlined, size: 64, color: Colors.grey),
+            SizedBox(height: 16),
+            Text('لا توجد منتجات'),
+          ],
+        ),
+      );
     }
 
     return Column(
@@ -156,7 +144,7 @@ class _ProductsScreenContentState extends State<ProductsScreenContent> {
             itemCount: productProvider.allProducts.length,
             itemBuilder: (context, index) {
               final product = productProvider.allProducts[index];
-              return _buildProductCard(context, product);
+              return _buildProductCard(context, product, favoritesProvider);
             },
           ),
         ),
@@ -164,169 +152,158 @@ class _ProductsScreenContentState extends State<ProductsScreenContent> {
     );
   }
 
-  Widget _buildProductCard(BuildContext context, Product product) {
-    // استخدام Consumer بدلاً من Provider.of للتحديث التلقائي
-    return Consumer<FavoritesProvider>(
-      builder: (context, provider, child) {
-        return GestureDetector(
-          onTap: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => ProductDetailsScreen(product: product),
-              ),
-            );
-          },
-          child: Container(
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(16),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.05),
-                  blurRadius: 10,
-                  offset: const Offset(0, 5),
-                ),
-              ],
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  flex: 2,
-                  child: ClipRRect(
-                    borderRadius: const BorderRadius.vertical(
-                      top: Radius.circular(16),
-                    ),
-                    child: Stack(
-                      children: [
-                        Positioned.fill(
-                          child: Image.network(
-                            product.imageUrl,
-                            fit: BoxFit.cover,
-                            errorBuilder: (c, e, s) => Container(
-                              color: Colors.grey[200],
-                              child: const Icon(Icons.broken_image),
-                            ),
-                          ),
-                        ),
-                        // زر المفضلة
-                        Positioned(
-                          top: 8,
-                          right: 8,
-                          child: CircleAvatar(
-                            backgroundColor: Colors.white.withOpacity(0.9),
-                            radius: 18,
-                            child: IconButton(
-                              padding: EdgeInsets.zero,
-                              icon: Icon(
-                                provider.isExist(product)
-                                    ? Icons.favorite
-                                    : Icons.favorite_border,
-                                color: provider.isExist(product)
-                                    ? Colors.red
-                                    : Colors.grey,
-                                size: 18,
-                              ),
-                              onPressed: () async {
-                                debugPrint(
-                                  '❤️ Favorite pressed: ${product.name}',
-                                );
-                                await provider.toggleFavorite(product);
-                                if (context.mounted) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content: Text(
-                                        provider.isExist(product)
-                                            ? '✅ تم إضافة ${product.name} إلى المفضلة'
-                                            : '❌ تم إزالة ${product.name} من المفضلة',
-                                      ),
-                                      duration: const Duration(seconds: 1),
-                                    ),
-                                  );
-                                }
-                              },
-                            ),
-                          ),
-                        ),
-                        // زر السلة
-                        Positioned(
-                          top: 8,
-                          left: 8,
-                          child: CircleAvatar(
-                            backgroundColor: Colors.white.withOpacity(0.9),
-                            radius: 18,
-                            child: IconButton(
-                              padding: EdgeInsets.zero,
-                              icon: Icon(
-                                provider.isExistshop(product)
-                                    ? Icons.shopping_cart
-                                    : Icons.shopping_cart_outlined,
-                                color: provider.isExistshop(product)
-                                    ? Colors.blue
-                                    : Colors.grey,
-                                size: 18,
-                              ),
-                              onPressed: () async {
-                                debugPrint('🛒 Cart pressed: ${product.name}');
-                                debugPrint(
-                                  '🛒 Before - Cart items count: ${provider.cartItems.length}',
-                                );
-                                await provider.toggleCart(product);
-                                debugPrint(
-                                  '🛒 After - Cart items count: ${provider.cartItems.length}',
-                                );
-                                if (context.mounted) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content: Text(
-                                        provider.isExistshop(product)
-                                            ? '✅ تم إضافة ${product.name} إلى السلة'
-                                            : '❌ تم إزالة ${product.name} من السلة',
-                                      ),
-                                      duration: const Duration(seconds: 1),
-                                    ),
-                                  );
-                                }
-                              },
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.all(10),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        product.name,
-                        style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 14,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        '\$${product.price.toStringAsFixed(2)}',
-                        style: TextStyle(
-                          color: Colors.blue[900],
-                          fontWeight: FontWeight.bold,
-                          fontSize: 14,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
+  Widget _buildProductCard(
+    BuildContext context,
+    Product product,
+    FirebaseFavoritesProvider favoritesProvider,
+  ) {
+    return GestureDetector(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => ProductDetailsScreen(product: product),
           ),
         );
       },
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 10,
+              offset: const Offset(0, 5),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              flex: 2,
+              child: ClipRRect(
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(16),
+                ),
+                child: Stack(
+                  children: [
+                    Positioned.fill(
+                      child: Image.network(
+                        product.imageUrl,
+                        fit: BoxFit.cover,
+                        errorBuilder: (c, e, s) => Container(
+                          color: Colors.grey[200],
+                          child: const Icon(Icons.broken_image),
+                        ),
+                      ),
+                    ),
+                    // Favorite button
+                    Positioned(
+                      top: 8,
+                      right: 8,
+                      child: CircleAvatar(
+                        backgroundColor: Colors.white.withOpacity(0.9),
+                        radius: 18,
+                        child: IconButton(
+                          padding: EdgeInsets.zero,
+                          icon: Icon(
+                            favoritesProvider.isExist(product)
+                                ? Icons.favorite
+                                : Icons.favorite_border,
+                            color: favoritesProvider.isExist(product)
+                                ? Colors.red
+                                : Colors.grey,
+                            size: 18,
+                          ),
+                          onPressed: () async {
+                            await favoritesProvider.toggleFavorite(product);
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(
+                                    favoritesProvider.isExist(product)
+                                        ? '✅ تم إضافة ${product.name} إلى المفضلة'
+                                        : '❌ تم إزالة ${product.name} من المفضلة',
+                                  ),
+                                  duration: const Duration(seconds: 1),
+                                ),
+                              );
+                            }
+                          },
+                        ),
+                      ),
+                    ),
+                    // Cart button
+                    Positioned(
+                      top: 8,
+                      left: 8,
+                      child: CircleAvatar(
+                        backgroundColor: Colors.white.withOpacity(0.9),
+                        radius: 18,
+                        child: IconButton(
+                          padding: EdgeInsets.zero,
+                          icon: Icon(
+                            favoritesProvider.isExistshop(product)
+                                ? Icons.shopping_cart
+                                : Icons.shopping_cart_outlined,
+                            color: favoritesProvider.isExistshop(product)
+                                ? Colors.blue
+                                : Colors.grey,
+                            size: 18,
+                          ),
+                          onPressed: () async {
+                            await favoritesProvider.toggleCart(product);
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(
+                                    favoritesProvider.isExistshop(product)
+                                        ? '✅ تم إضافة ${product.name} إلى السلة'
+                                        : '❌ تم إزالة ${product.name} من السلة',
+                                  ),
+                                  duration: const Duration(seconds: 1),
+                                ),
+                              );
+                            }
+                          },
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(10),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    product.name,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    '\$${product.price.toStringAsFixed(2)}',
+                    style: TextStyle(
+                      color: Colors.blue[900],
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

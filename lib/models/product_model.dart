@@ -1,3 +1,5 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+
 class Product {
   final int id;
   final String name;
@@ -30,6 +32,19 @@ class Product {
     );
   }
 
+  // تحويل من Firestore Document إلى Product
+  factory Product.fromFirestore(DocumentSnapshot doc) {
+    final data = doc.data() as Map<String, dynamic>;
+    return Product(
+      id: data['id'] ?? doc.id.hashCode,
+      name: data['name'] ?? 'No Name',
+      price: (data['price'] ?? 0).toDouble(),
+      imageUrl: data['imageUrl'] ?? 'https://via.placeholder.com/150',
+      description: data['description'] ?? 'No description available',
+      category: data['category'] ?? 'General',
+    );
+  }
+
   // تحويل Product إلى JSON
   Map<String, dynamic> toJson() {
     return {
@@ -42,7 +57,18 @@ class Product {
     };
   }
 
-  // نسخة جديدة مع تعديلات
+  // تحويل Product إلى Map لـ Firestore
+  Map<String, dynamic> toMap() {
+    return {
+      'id': id,
+      'name': name,
+      'price': price,
+      'imageUrl': imageUrl,
+      'description': description,
+      'category': category,
+    };
+  }
+
   Product copyWith({
     int? id,
     String? name,

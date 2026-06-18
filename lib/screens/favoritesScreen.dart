@@ -1,18 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../custom_bottom_nav_bar.dart';
-import '../providers/favorites_provider.dart';
+
 import '../models/product_model.dart';
 import 'product_details_screen.dart';
+
+import '../providers/firebase_favorites_provider.dart';
 
 class FavoritesScreen extends StatelessWidget {
   static const screenRoute = '/favoritesScreen';
 
   @override
   Widget build(BuildContext context) {
-    final provider = Provider.of<FavoritesProvider>(context);
-    final favoriteItems = provider.favoriteItems;
-
     return Scaffold(
       appBar: AppBar(
         title: const Text("المفضلات"),
@@ -20,8 +19,14 @@ class FavoritesScreen extends StatelessWidget {
         foregroundColor: Colors.black,
         elevation: 0,
       ),
-      body: favoriteItems.isEmpty
-          ? const Center(
+      body: Consumer<FirebaseFavoritesProvider>(
+        builder: (context, provider, child) {
+          final favoriteItems = provider.favoriteItems;
+
+          debugPrint('❤️ FavoritesScreen - Favorites: ${favoriteItems.length}');
+
+          if (favoriteItems.isEmpty) {
+            return const Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
@@ -34,21 +39,25 @@ class FavoritesScreen extends StatelessWidget {
                   ),
                 ],
               ),
-            )
-          : GridView.builder(
-              padding: const EdgeInsets.all(12),
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 2,
-                childAspectRatio: 0.7,
-                crossAxisSpacing: 12,
-                mainAxisSpacing: 12,
-              ),
-              itemCount: favoriteItems.length,
-              itemBuilder: (context, index) {
-                final product = favoriteItems[index];
-                return _buildFavoriteCard(context, product, provider);
-              },
+            );
+          }
+
+          return GridView.builder(
+            padding: const EdgeInsets.all(12),
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 2,
+              childAspectRatio: 0.7,
+              crossAxisSpacing: 12,
+              mainAxisSpacing: 12,
             ),
+            itemCount: favoriteItems.length,
+            itemBuilder: (context, index) {
+              final product = favoriteItems[index];
+              return _buildFavoriteCard(context, product, provider);
+            },
+          );
+        },
+      ),
       bottomNavigationBar: const CustomBottomNavBar(selectedIndex: 2),
     );
   }
@@ -56,7 +65,7 @@ class FavoritesScreen extends StatelessWidget {
   Widget _buildFavoriteCard(
     BuildContext context,
     Product product,
-    FavoritesProvider provider,
+    FirebaseFavoritesProvider provider,
   ) {
     return GestureDetector(
       onTap: () {
@@ -82,7 +91,6 @@ class FavoritesScreen extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // صورة المنتج
             Expanded(
               flex: 2,
               child: ClipRRect(
@@ -101,7 +109,6 @@ class FavoritesScreen extends StatelessWidget {
                         ),
                       ),
                     ),
-                    // زر إزالة من المفضلة
                     Positioned(
                       top: 8,
                       right: 8,
@@ -115,7 +122,17 @@ class FavoritesScreen extends StatelessWidget {
                             color: Colors.red,
                             size: 18,
                           ),
-                          onPressed: () => provider.toggleFavorite(product),
+                          onPressed: () async {
+                            await provider.toggleFavorite(product);
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('تم إزالة المنتج من المفضلة'),
+                                  duration: Duration(seconds: 1),
+                                ),
+                              );
+                            }
+                          },
                         ),
                       ),
                     ),
@@ -123,7 +140,6 @@ class FavoritesScreen extends StatelessWidget {
                 ),
               ),
             ),
-            // معلومات المنتج
             Padding(
               padding: const EdgeInsets.all(10),
               child: Column(

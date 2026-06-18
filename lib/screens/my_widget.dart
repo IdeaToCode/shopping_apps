@@ -351,7 +351,6 @@ String _getCategoryNameInArabic(String category) {
   }
 }
 
-// دالة card القديمة - معدلة للعمل بشكل صحيح
 Widget card(
   BuildContext context,
   List<Product> filteredList,
